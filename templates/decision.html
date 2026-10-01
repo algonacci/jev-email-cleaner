@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keputusan tersimpan</title>
+  <style>
+    :root { color-scheme: dark; --ink: #f3f0e8; --muted: #96958f; --line: #30312f; --lime: #c8ff63; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #0d0e0c; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    main { width: min(540px, 100%); border: 1px solid var(--line); background: #181916; padding: clamp(28px, 6vw, 52px); animation: arrive .45s ease-out both; }
+    .status { color: var(--lime); font-size: 12px; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { margin: 16px 0 12px; font: 500 clamp(32px, 8vw, 54px)/1 Georgia, serif; }
+    p { color: var(--muted); line-height: 1.7; }
+    a { display: inline-block; margin-top: 20px; border: 1px solid var(--lime); padding: 12px 16px; color: var(--lime); text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; transition: background .18s, color .18s, transform .18s; }
+    a:hover { background: var(--lime); color: #11130e; transform: translateY(-2px); }
+    @keyframes arrive { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="status">Action complete / {{ decision }}</div>
+    <h1>Email {{ action }}.</h1>
+    <p>Keputusan sudah dicatat di database lokal. Kembali ke inbox untuk mengambil dan mengevaluasi email terbaru.</p>
+    <a href="/">Kembali ke inbox</a>
+  </main>
+</body>
+</html>

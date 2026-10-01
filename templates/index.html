@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JEV Email Cleaner</title>
+  <style>
+    :root { color-scheme: dark; --ink: #f3f0e8; --muted: #96958f; --line: #30312f; --lime: #c8ff63; --panel: #181916; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #0d0e0c; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 32px 32px; }
+    main { position: relative; width: min(980px, calc(100% - 32px)); margin: 0 auto; padding: 72px 0; }
+    header { display: flex; justify-content: space-between; gap: 24px; align-items: end; border-bottom: 1px solid var(--line); padding-bottom: 24px; }
+    .eyebrow { color: var(--lime); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 10px 0 0; font: 500 clamp(34px, 7vw, 72px)/.95 Georgia, serif; letter-spacing: -.04em; }
+    .account { max-width: 300px; color: var(--muted); font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+    .summary { display: flex; justify-content: space-between; margin: 20px 0 14px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+    .actions { display: flex; justify-content: flex-end; margin: 20px 0; }
+    button { border: 1px solid var(--lime); background: var(--lime); color: #11130e; padding: 12px 18px; font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; transition: background .18s, color .18s, transform .18s, opacity .18s; }
+    button:hover { background: transparent; color: var(--lime); transform: translateY(-2px); }
+    button:active { transform: translateY(1px) scale(.98); }
+    button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    button:disabled { cursor: wait; opacity: .65; transform: none; }
+    .loader { display: none; width: 12px; height: 12px; margin-right: 9px; border: 2px solid rgba(17,19,14,.3); border-top-color: #11130e; border-radius: 50%; vertical-align: -2px; animation: spin .7s linear infinite; }
+    .is-loading .loader { display: inline-block; }
+    .processing-note { display: none; margin: -8px 0 20px; color: var(--muted); font-size: 12px; text-align: right; }
+    .is-loading + .processing-note { display: block; animation: pulse 1.2s ease-in-out infinite; }
+    .elapsed { color: var(--lime); font-variant-numeric: tabular-nums; }
+    .messages { display: grid; gap: 10px; }
+    article { background: rgba(24,25,22,.92); border: 1px solid var(--line); padding: 22px; transition: border-color .2s, transform .2s; animation: reveal .45s both; animation-delay: calc(var(--index) * 55ms); }
+    article:hover { border-color: #62645e; transform: translateX(4px); }
+    .meta { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 12px; }
+    .sender { color: var(--lime); overflow-wrap: anywhere; }
+    .result { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .badge { border: 1px solid var(--line); padding: 6px 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+    .badge.keep { border-color: #426b45; color: #8ce393; }
+    .badge.review { border-color: #776034; color: #f0c66b; }
+    .badge.delete { border-color: #713d3d; color: #f18e8e; }
+    .decision { display: flex; gap: 8px; margin-top: 12px; }
+    .decision button { padding: 9px 12px; }
+    .decision .delete-button { border-color: #713d3d; background: transparent; color: #f18e8e; }
+    .decision .delete-button:hover { background: #713d3d; color: var(--ink); }
+    .decision.is-submitting button { pointer-events: none; opacity: .35; }
+    .decision.is-submitting button.clicked { opacity: 1; transform: scale(.97); }
+    h2 { margin: 14px 0 10px; font-size: 18px; line-height: 1.35; }
+    p { margin: 0; color: #b8b8b2; font: 14px/1.65 system-ui, sans-serif; }
+    .notice { border: 1px solid #5c4633; background: #201912; color: #f3c58f; padding: 18px; line-height: 1.6; }
+    .empty { padding: 56px 20px; border: 1px dashed var(--line); color: var(--muted); text-align: center; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 50% { opacity: .45; } }
+    @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 640px) { main { padding: 42px 0; } header, .meta { align-items: start; flex-direction: column; } .account { text-align: left; } article { padding: 18px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <div class="eyebrow">Inbox / Classification phase</div>
+        <h1>Email cleaner.</h1>
+      </div>
+      <div class="account">{{ account or 'Belum ada akun terhubung' }}</div>
+    </header>
+
+    <div class="summary">
+      <span>Manual review queue</span>
+      <span>{{ messages|length }} perlu ditinjau</span>
+    </div>
+
+    <form class="actions" id="process-form" method="post">
+      <button type="submit"><span class="loader" aria-hidden="true"></span><span class="button-label">Lanjutkan klasifikasi</span></button>
+    </form>
+    <div class="processing-note" id="processing-note" role="status" aria-live="polite">Mengambil Inbox...</div>
+
+    {% if summary %}
+      <div class="result" aria-label="Hasil pemrosesan">
+        <span class="badge"><strong class="count" data-count="{{ summary.classified }}">0</strong> classified</span>
+        <span class="badge keep"><strong class="count" data-count="{{ summary.keep }}">0</strong> keep</span>
+        <span class="badge review"><strong class="count" data-count="{{ summary.review }}">0</strong> review</span>
+        <span class="badge delete"><strong class="count" data-count="{{ summary.delete }}">0</strong> delete</span>
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div class="notice">{{ error }}</div>
+    {% else %}
+      {% if classification_error %}
+        <div class="notice">{{ classification_error }} Email tetap ditampilkan tanpa rekomendasi.</div>
+      {% endif %}
+    {% endif %}
+
+    {% if messages %}
+      <section class="messages">
+        {% for message in messages %}
+          <article style="--index: {{ loop.index0 }}">
+            <div class="meta">
+              <span class="sender">{{ message.sender }}</span>
+              <time>{{ message.date }}</time>
+            </div>
+            <h2>{{ message.subject }}</h2>
+            <p>{{ message.preview }}</p>
+            {% if message.recommendation is defined %}
+              <div class="result">
+                <span class="badge {{ message.recommendation }}">{{ message.recommendation }}</span>
+                <span class="badge">{{ message.category }}</span>
+                {% if message.confidence is not none %}
+                  <span class="badge">{{ message.confidence }}% confidence</span>
+                {% endif %}
+              </div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
+    {% elif loaded %}
+      <div class="empty">Klasifikasi email baru selesai. Tidak ada hasil review baru.</div>
+    {% elif not error %}
+      <div class="empty">Tekan tombol untuk melanjutkan klasifikasi Inbox. Fase ini tidak menjalankan aksi Gmail.</div>
+    {% endif %}
+  </main>
+  <script>
+    const processForm = document.querySelector('#process-form');
+    const processingNote = document.querySelector('#processing-note');
+    const loadingMessages = [
+      'Mengambil Inbox...',
+      'Jev sedang membaca pola email...',
+      'Memisahkan keep, review, dan delete...',
+      'Menyimpan checkpoint ke database...'
+    ];
+
+    processForm.addEventListener('submit', () => {
+      processForm.classList.add('is-loading');
+      const button = processForm.querySelector('button');
+      button.disabled = true;
+      button.querySelector('.button-label').textContent = 'Sedang memproses';
+      let messageIndex = 0;
+      const startedAt = Date.now();
+      window.setInterval(() => {
+        messageIndex = (messageIndex + 1) % loadingMessages.length;
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        processingNote.innerHTML = `${loadingMessages[messageIndex]} <span class="elapsed">${elapsed}s</span>`;
+      }, 1800);
+    });
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelectorAll('.count').forEach((counter) => {
+      const target = Number(counter.dataset.count);
+      if (reducedMotion || target === 0) {
+        counter.textContent = target;
+        return;
+      }
+
+      const duration = Math.min(1200, 450 + target * 25);
+      const startedAt = performance.now();
+      const tick = (now) => {
+        const progress = Math.min((now - startedAt) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        counter.textContent = Math.round(target * eased);
+        if (progress < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    document.querySelectorAll('.decision').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        form.classList.add('is-submitting');
+        event.submitter?.classList.add('clicked');
+        form.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+      });
+    });
+  </script>
+</body>
+</html>
